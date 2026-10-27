@@ -20,8 +20,8 @@ conda install -c conda-forge gcc=12 -y
 > related issue: [isaac-sim/IsaacSim#912](https://github.com/isaac-sim/IsaacSim/issues/912)
 
 Isaac Sim 5.1 (the version LeIsaac pins to) is validated against the NVIDIA **580** driver branch.
-On newer branches two distinct failure modes were observed on the same machine; they should not be
-confused with each other, because the workaround for one does not cover the other:
+On newer branches two distinct failure modes were observed; they should not be confused with each
+other, because the workaround for one does not cover the other:
 
 1. **Startup crash** — the app dies during RTX initialisation (access violation in `rtx.scenedb`)
    before any stage is loaded. `import isaacsim` still succeeds. Seen on the Vulkan backend on both
@@ -31,14 +31,24 @@ confused with each other, because the workaround for one does not cover the othe
    the same error afterwards. This is a driver-level failure of the windowed D3D12 render path with
    `--enable_cameras`; headless (offscreen) rendering is not affected.
 
-Verified matrix on Windows 11 + RTX 4060 Laptop, driver **610.62**:
+Startup-crash matrix, all verified on real machine:
 
-| Run mode | Graphics API | Result |
-|---|---|---|
-| Headless + `--enable_cameras` (offscreen) | D3D12 | works (23 min smoke, 13643 frames; end-to-end teleop) |
-| Headless optimization check without cameras | D3D12 | works |
-| Windowed (app default viewport) + `--enable_cameras` | D3D12 | **crash** (CUDA illegal memory access at first camera read) |
-| Windowed, no `--enable_cameras` | — | not supported by LeIsaac camera tasks (raises "A camera was spawned without the --enable_cameras flag") |
+| OS | GPU | Driver | Backend | Result |
+|---|---|---|---|---|
+| Windows 11 25H2 | RTX 4060 Laptop 8 GB | 610.62 | Vulkan (default) | **startup crash** (`rtx.scenedb` access violation) |
+| Windows 11 25H2 | RTX 4060 Laptop 8 GB | 610.62 | D3D12 (`--/app/vulkan=false`) | starts (`Simulation App Startup Complete`) |
+| Ubuntu 22.04 | (see upstream issue) | 615.71.09 | Vulkan (default) | **startup crash** (same signature) |
+| Ubuntu 22.04 | (see upstream issue) | 580.126.09 | Vulkan (default) | works |
+
+Camera-render crash matrix — Windows 11 + RTX 4060 Laptop, driver 610.62, after a successful D3D12
+startup:
+
+| Run mode | Result |
+|---|---|
+| Headless + `--enable_cameras` (offscreen) | works (23 min smoke, 13643 frames; end-to-end teleop: 120 env.step, 0 CUDA errors) |
+| Headless without cameras | works |
+| Windowed (app default viewport) + `--enable_cameras` | **crash** (CUDA illegal memory access at first camera read) |
+| Windowed without `--enable_cameras` | not supported by LeIsaac camera tasks (raises "A camera was spawned without the --enable_cameras flag") |
 
 Enabling the `performance` rendering preset (which disables all OptiX/AI denoisers), forcing serial
 omni-graph execution, hiding the UI, or disabling the present thread did **not** fix the windowed
